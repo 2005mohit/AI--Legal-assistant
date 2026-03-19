@@ -5,7 +5,7 @@
 
 A live AI system that automatically analyzes, summarizes, and extracts key information from legal documents. Upload any legal document (PDF/DOCX/XLSX) and ask questions in plain English.
 
-🔗 **Live Demo:** https://ai-based-legal-document-summarizer-wibtkmprcyj8uhhh4bvrgu.streamlit.app/
+🔗 **Live Demo:**https://ai--legal-assistant-vir32drdsmcrvmmnwuznwy.streamlit.app/
 
 ---
 
