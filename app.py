@@ -42,49 +42,73 @@ index, metadata = load_faiss()
 @st.cache_resource
 def load_models():
     embed_model = SentenceTransformer("all-MiniLM-L6-v2")
-    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
-    model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
+    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
+    model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
     return embed_model, tokenizer, model
 
 embed_model, tokenizer, model = load_models()
 
-# GENERATE ANSWER DIRECTLY (no pipeline)
+# GENERATE ANSWER
 
 def generate(prompt):
     inputs = tokenizer(prompt, return_tensors="pt", max_length=512, truncation=True)
     outputs = model.generate(
         **inputs,
-        max_new_tokens=200,
-        repetition_penalty=2.5,
-        no_repeat_ngram_size=3,
-        early_stopping=True
+        max_new_tokens=120,
+        num_beams=4,
+        repetition_penalty=3.0,
+        no_repeat_ngram_size=4,
+        early_stopping=True,
+        length_penalty=1.0
     )
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
+# GENERAL LEGAL QUESTION DETECT
+
+GENERAL_LEGAL_KEYWORDS = [
+    "what is", "define", "meaning of", "explain", "what are",
+    "difference between", "types of", "how does", "what does",
+    "contract law", "ipc", "crpc", "constitution", "fundamental rights",
+    "bail", "fir", "cognizable", "tort", "negligence", "liability",
+    "arbitration", "jurisdiction", "injunction", "affidavit", "pil",
+    "writ", "habeas corpus", "suo motu", "legal", "law", "court",
+    "judge", "advocate", "section", "act", "penalty", "offence"
+]
+
+def is_general_legal_question(query):
+    q = query.lower()
+    return any(kw in q for kw in GENERAL_LEGAL_KEYWORDS)
+
+def answer_general_legal(query):
+    prompt = f"""You are an expert legal assistant with knowledge of Indian and international law.
+Answer the following legal question clearly and accurately in 2-3 sentences.
+
+Question: {query}
+Answer:"""
+    return generate(prompt)
+
 # RAG FUNCTIONS (INDEXED DOCS)
 
-def retrieve(query, top_k=3):
+def retrieve(query, top_k=2):
     emb = embed_model.encode([query])
     _, ids = index.search(np.array(emb).astype("float32"), top_k)
     return [metadata[i]["text"] for i in ids[0]]
 
 def answer_from_index(query):
+    # General legal question — answer from model knowledge
+    if is_general_legal_question(query):
+        return answer_general_legal(query)
+
+    # Document specific question — answer from FAISS index
     chunks = retrieve(query)
-    answers = []
+    best_chunk = chunks[0] if chunks else ""
+    prompt = f"""You are a legal assistant. Read the legal document excerpt below and answer the question accurately.
 
-    for c in chunks:
-        prompt = f"""
-Answer the question based on the legal text below:
+Legal text: {best_chunk[:600]}
 
-{c[:1000]}
-
-Question:
-{query}
-"""
-        res = generate(prompt)
-        answers.append(res)
-
-    return "\n\n".join(answers)
+Question: {query}
+Answer in one clear sentence:"""
+    return generate(prompt)
 
 # FILE EXTRACTION
 
@@ -111,22 +135,16 @@ def answer_from_uploaded_doc(text, question):
     temp_index.add(np.array(embeddings).astype("float32"))
 
     q_emb = embed_model.encode([question])
-    _, ids = temp_index.search(np.array(q_emb).astype("float32"), 3)
+    _, ids = temp_index.search(np.array(q_emb).astype("float32"), 2)
 
-    answers = []
-    for i in ids[0]:
-        prompt = f"""
-Answer using the document content below:
+    best_chunk = chunks[ids[0][0]]
+    prompt = f"""You are a legal assistant. Read the legal document excerpt below and answer the question accurately.
 
-{chunks[i]}
+Legal text: {best_chunk}
 
-Question:
-{question}
-"""
-        res = generate(prompt)
-        answers.append(res)
-
-    return "\n\n".join(answers)
+Question: {question}
+Answer in one clear sentence:"""
+    return generate(prompt)
 
 
 # SIDEBAR (UPLOAD)
