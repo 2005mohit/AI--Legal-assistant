@@ -26,8 +26,8 @@ st.caption(" Legal Document Q&A ")
 @st.cache_resource
 def load_faiss():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    FAISS_PATH = os.path.join(BASE_DIR, "faiss_index", "index.faiss")
-    META_PATH  = os.path.join(BASE_DIR, "faiss_index", "metadata.pkl")
+    FAISS_PATH = os.path.join(BASE_DIR, "model", "index.faiss")
+    META_PATH  = os.path.join(BASE_DIR, "model", "metadata.pkl")
 
     index = faiss.read_index(FAISS_PATH)
     with open(META_PATH, "rb") as f:
