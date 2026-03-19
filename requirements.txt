@@ -8,3 +8,4 @@ pdfplumber
 python-docx
 pandas
 openpyxl
+groq
