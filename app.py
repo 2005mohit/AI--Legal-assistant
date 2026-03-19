@@ -52,7 +52,13 @@ embed_model, tokenizer, model = load_models()
 
 def generate(prompt):
     inputs = tokenizer(prompt, return_tensors="pt", max_length=512, truncation=True)
-    outputs = model.generate(**inputs, max_new_tokens=200)
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=200,
+        repetition_penalty=2.5,
+        no_repeat_ngram_size=3,
+        early_stopping=True
+    )
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 # RAG FUNCTIONS (INDEXED DOCS)
