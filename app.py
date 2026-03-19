@@ -9,7 +9,7 @@ import docx
 import pandas as pd
 
 from sentence_transformers import SentenceTransformer
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 # STREAMLIT CONFIG
 
@@ -44,15 +44,16 @@ def load_models():
     embed_model = SentenceTransformer("all-MiniLM-L6-v2")
     tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
     model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
-    summarizer = pipeline(
-        "text2text-generation",
-        model=model,
-        tokenizer=tokenizer,
-        device=-1
-    )
-    return embed_model, summarizer
+    return embed_model, tokenizer, model
 
-embed_model, summarizer = load_models()
+embed_model, tokenizer, model = load_models()
+
+# GENERATE ANSWER DIRECTLY (no pipeline)
+
+def generate(prompt):
+    inputs = tokenizer(prompt, return_tensors="pt", max_length=512, truncation=True)
+    outputs = model.generate(**inputs, max_new_tokens=200)
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 # RAG FUNCTIONS (INDEXED DOCS)
 
@@ -74,7 +75,7 @@ Answer the question based on the legal text below:
 Question:
 {query}
 """
-        res = summarizer(prompt, max_new_tokens=200)[0]["generated_text"]
+        res = generate(prompt)
         answers.append(res)
 
     return "\n\n".join(answers)
@@ -116,14 +117,13 @@ Answer using the document content below:
 Question:
 {question}
 """
-        res = summarizer(prompt, max_new_tokens=200)[0]["generated_text"]
+        res = generate(prompt)
         answers.append(res)
 
     return "\n\n".join(answers)
 
 
 # SIDEBAR (UPLOAD)
-
 
 with st.sidebar:
     st.header(" Upload Document (Optional)")
